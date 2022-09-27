@@ -56,7 +56,8 @@ function traverseObjectKeys(
 ) {
   Object.keys(obj).forEach(k => {
     if (obj[k] && typeof obj[k] === 'object' && !Array.isArray(obj[k])) {
-      traverse(obj[k], callback, processed, k)
+      traverse(obj[k], callback, processed)
+      //console.log('Mar-->', obj[k], k)
     }
   })
 }
@@ -75,14 +76,11 @@ export function traverse(
   processed = new Set<LinkedJSONSchema>(),
   key?: string
 ): void {
+  //console.log('MARIA444--->', schema)
   // Handle recursive schemas
   if (processed.has(schema)) {
     return
   }
-
-  processed.add(schema)
-  callback(schema, key ?? null)
-
   if (schema.anyOf) {
     traverseArray(schema.anyOf, callback, processed)
   }
@@ -93,6 +91,8 @@ export function traverse(
     traverseArray(schema.oneOf, callback, processed)
   }
   if (schema.properties) {
+    processed.add(schema)
+    callback(schema, key ?? null)
     traverseObjectKeys(schema.properties, callback, processed)
   }
   if (schema.patternProperties) {
