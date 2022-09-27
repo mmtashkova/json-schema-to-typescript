@@ -7,8 +7,8 @@ export type AST =
   | TArray
   | TBoolean
   | TEnum
-  | TInterface
-  | TNamedInterface
+  | TClass
+  | TNamedClass
   | TIntersection
   | TLiteral
   | TNumber
@@ -66,20 +66,20 @@ export interface TEnumParam {
   keyName: string
 }
 
-export interface TInterface extends AbstractAST {
-  type: 'INTERFACE'
-  params: TInterfaceParam[]
-  superTypes: TNamedInterface[]
+export interface TClass extends AbstractAST {
+  type: 'CLASS'
+  params: TClassParam[]
+  superTypes: TNamedClass[]
 }
 
-export interface TNamedInterface extends AbstractAST {
+export interface TNamedClass extends AbstractAST {
   standaloneName: string
-  type: 'INTERFACE'
-  params: TInterfaceParam[]
-  superTypes: TNamedInterface[]
+  type: 'CLASS'
+  params: TClassParam[]
+  superTypes: TNamedClass[]
 }
 
-export interface TInterfaceParam {
+export interface TClassParam {
   ast: AST
   keyName: string
   isRequired: boolean

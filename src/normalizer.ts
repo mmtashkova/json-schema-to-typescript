@@ -92,7 +92,7 @@ rules.set('Add an $id to anything that needs it', (schema, fileName, _options, _
   // We'll infer from $id and title downstream
   // TODO: Normalize upstream
   const dereferencedName = dereferencedPaths.get(schema)
-  if (!schema.$id && !schema.title && dereferencedName) {
+  if (!schema.$id && !schema.name && dereferencedName) {
     schema.$id = toSafeString(justName(dereferencedName))
   }
 

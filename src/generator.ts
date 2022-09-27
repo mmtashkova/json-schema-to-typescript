@@ -8,24 +8,28 @@ import {
   T_ANY,
   TArray,
   TEnum,
-  TInterface,
+  TClass,
   TIntersection,
-  TNamedInterface,
+  TNamedClass,
   TUnion,
   T_UNKNOWN
 } from './types/AST'
 import {log, toSafeString} from './utils'
 
+class Test {
+  public static multiset = new Set()
+}
+
 export function generate(ast: AST, options = DEFAULT_OPTIONS): string {
   return (
     [
-      options.bannerComment,
+      /*options.bannerComment,*/
       declareNamedTypes(ast, options, ast.standaloneName!),
-      declareNamedInterfaces(ast, options, ast.standaloneName!),
+      declareNamedClasss(ast, options, ast.standaloneName!),
       declareEnums(ast, options)
     ]
       .filter(Boolean)
-      .join('\n\n') + '\n'
+      .join('\n') + '\n'
   ) // trailing newline
 }
 
@@ -51,14 +55,14 @@ function declareEnums(ast: AST, options: Options, processed = new Set<AST>()): s
         type += declareEnums(ast.spreadParam, options, processed)
       }
       return type
-    case 'INTERFACE':
+    case 'CLASS':
       return getSuperTypesAndParams(ast).reduce((prev, ast) => prev + declareEnums(ast, options, processed), '')
     default:
       return ''
   }
 }
 
-function declareNamedInterfaces(ast: AST, options: Options, rootASTName: string, processed = new Set<AST>()): string {
+function declareNamedClasss(ast: AST, options: Options, rootASTName: string, processed = new Set<AST>()): string {
   if (processed.has(ast)) {
     return ''
   }
@@ -68,30 +72,31 @@ function declareNamedInterfaces(ast: AST, options: Options, rootASTName: string,
 
   switch (ast.type) {
     case 'ARRAY':
-      type = declareNamedInterfaces((ast as TArray).params, options, rootASTName, processed)
+      type = declareNamedClasss((ast as TArray).params, options, rootASTName, processed)
       break
-    case 'INTERFACE':
+    case 'CLASS': {
       type = [
         hasStandaloneName(ast) &&
           (ast.standaloneName === rootASTName || options.declareExternallyReferenced) &&
-          generateStandaloneInterface(ast, options),
+          generateStandaloneClass(ast, options),
         getSuperTypesAndParams(ast)
-          .map(ast => declareNamedInterfaces(ast, options, rootASTName, processed))
+          .map(ast => declareNamedClasss(ast, options, rootASTName, processed))
           .filter(Boolean)
           .join('\n')
       ]
         .filter(Boolean)
         .join('\n')
       break
+    }
     case 'INTERSECTION':
     case 'TUPLE':
     case 'UNION':
       type = ast.params
-        .map(_ => declareNamedInterfaces(_, options, rootASTName, processed))
+        .map(_ => declareNamedClasss(_, options, rootASTName, processed))
         .filter(Boolean)
         .join('\n')
       if (ast.type === 'TUPLE' && ast.spreadParam) {
-        type += declareNamedInterfaces(ast.spreadParam, options, rootASTName, processed)
+        type += declareNamedClasss(ast.spreadParam, options, rootASTName, processed)
       }
       break
     default:
@@ -118,7 +123,7 @@ function declareNamedTypes(ast: AST, options: Options, rootASTName: string, proc
         .join('\n')
     case 'ENUM':
       return ''
-    case 'INTERFACE':
+    case 'CLASS': {
       return getSuperTypesAndParams(ast)
         .map(
           ast =>
@@ -127,6 +132,7 @@ function declareNamedTypes(ast: AST, options: Options, rootASTName: string, proc
         )
         .filter(Boolean)
         .join('\n')
+    }
     case 'INTERSECTION':
     case 'TUPLE':
     case 'UNION':
@@ -142,11 +148,12 @@ function declareNamedTypes(ast: AST, options: Options, rootASTName: string, proc
       ]
         .filter(Boolean)
         .join('\n')
-    default:
+    default: {
       if (hasStandaloneName(ast)) {
         return generateStandaloneType(ast, options)
       }
       return ''
+    }
   }
 }
 
@@ -178,8 +185,9 @@ function generateRawType(ast: AST, options: Options): string {
       })()
     case 'BOOLEAN':
       return 'boolean'
-    case 'INTERFACE':
-      return generateInterface(ast, options)
+    case 'CLASS': {
+      return capitalizeFirstLetter(ast.keyName) + ';'
+    }
     case 'INTERSECTION':
       return generateSetOperation(ast, options)
     case 'LITERAL':
@@ -280,6 +288,13 @@ function generateRawType(ast: AST, options: Options): string {
       return ast.params
   }
 }
+function capitalizeFirstLetter(str: any) {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+/*function fromCamelCase(value: any) {
+  const spaced = value.replace(/([a-z])([A-Z])/g, '$1 $2');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}*/
 
 /**
  * Generate a Union or Intersection
@@ -290,7 +305,12 @@ function generateSetOperation(ast: TIntersection | TUnion, options: Options): st
   return members.length === 1 ? members[0] : '(' + members.join(' ' + separator + ' ') + ')'
 }
 
-function generateInterface(ast: TInterface, options: Options): string {
+function generateClass(ast: TClass, options: Options): string {
+  if (Test.multiset.has(ast.standaloneName)) {
+    return ''
+  } else {
+    Test.multiset.add(ast.standaloneName)
+  }
   return (
     `{` +
     '\n' +
@@ -310,7 +330,8 @@ function generateInterface(ast: TInterface, options: Options): string {
       )
       .join('\n') +
     '\n' +
-    '}'
+    '}' +
+    '\n'
   )
 }
 
@@ -331,14 +352,19 @@ function generateStandaloneEnum(ast: TEnum, options: Options): string {
   )
 }
 
-function generateStandaloneInterface(ast: TNamedInterface, options: Options): string {
+function generateStandaloneClass(ast: TNamedClass, options: Options): string {
+  const test = generateClass(ast, options)
+  if (test == '') {
+    return ''
+  }
   return (
-    (hasComment(ast) ? generateComment(ast.comment) + '\n' : '') +
-    `export interface ${toSafeString(ast.standaloneName)} ` +
+    options.bannerComment +
+    '\n' +
+    `export class ${toSafeString(ast.standaloneName)} ` +
     (ast.superTypes.length > 0
       ? `extends ${ast.superTypes.map(superType => toSafeString(superType.standaloneName)).join(', ')} `
       : '') +
-    generateInterface(ast, options)
+    test
   )
 }
 
@@ -362,6 +388,6 @@ function escapeKeyName(keyName: string): string {
   return JSON.stringify(keyName)
 }
 
-function getSuperTypesAndParams(ast: TInterface): AST[] {
+function getSuperTypesAndParams(ast: TClass): AST[] {
   return ast.params.map(param => param.ast).concat(ast.superTypes)
 }

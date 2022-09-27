@@ -48,8 +48,8 @@
   "dependencies": {
     "@bcherny/json-schema-ref-parser": "9.0.9",
     "@types/json-schema": "^7.0.11",
-    "@types/lodash": "^4.14.182",
-    "@types/prettier": "^2.6.1",
+    "@types/lodash": "4.14.182",
+    "@types/prettier": "2.6.0",
     "cli-color": "^2.0.2",
     "get-stdin": "^8.0.0",
     "glob": "^7.1.6",

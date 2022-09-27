@@ -7,9 +7,9 @@ import {
   AST,
   T_ANY,
   T_ANY_ADDITIONAL_PROPERTIES,
-  TInterface,
-  TInterfaceParam,
-  TNamedInterface,
+  TClass,
+  TClassParam,
+  TNamedClass,
   TTuple,
   T_UNKNOWN,
   T_UNKNOWN_ADDITIONAL_PROPERTIES,
@@ -43,7 +43,7 @@ export function parse(
   const types = typesOfSchema(schema)
   if (types.length === 1) {
     const ast = parseAsTypeWithCache(schema, types[0], options, keyName, processed, usedNames)
-    log('blue', 'parser', 'Types:', types, 'Input:', schema, 'Output:', ast)
+    log('blue', 'parser', 'Types:', types, 'Input:', schema, 'Output:', ast, keyName)
     return ast
   }
 
@@ -54,7 +54,7 @@ export function parse(
       $id: schema.$id,
       allOf: [],
       description: schema.description,
-      title: schema.title
+      name: schema.name
     },
     'ALL_OF',
     options,
@@ -173,7 +173,7 @@ function parseNonLiteral(
         type: 'ENUM'
       }
     case 'NAMED_SCHEMA':
-      return newInterface(schema as SchemaSchema, options, processed, usedNames, keyName)
+      return newClass(schema as SchemaSchema, options, processed, usedNames, keyName)
     case 'NULL':
       return {
         comment: schema.description,
@@ -261,7 +261,7 @@ function parseNonLiteral(
         type: 'UNION'
       }
     case 'UNNAMED_SCHEMA':
-      return newInterface(schema as SchemaSchema, options, processed, usedNames, keyName, keyNameFromDefinition)
+      return newClass(schema as SchemaSchema, options, processed, usedNames, keyName, keyNameFromDefinition)
     case 'UNTYPED_ARRAY':
       // normalised to not be undefined
       const minItems = schema.minItems!
@@ -298,30 +298,32 @@ function parseNonLiteral(
 function standaloneName(
   schema: LinkedJSONSchema,
   keyNameFromDefinition: string | undefined,
-  usedNames: UsedNames
+  usedNames: UsedNames,
+  keyName?: string
 ): string | undefined {
-  const name = schema.title || schema.$id || keyNameFromDefinition
+  const name = schema.name || (schema.properties ? keyName : null) || schema.$id || keyNameFromDefinition
+
   if (name) {
     return generateName(name, usedNames)
   }
 }
 
-function newInterface(
+function newClass(
   schema: SchemaSchema,
   options: Options,
   processed: Processed,
   usedNames: UsedNames,
   keyName?: string,
   keyNameFromDefinition?: string
-): TInterface {
-  const name = standaloneName(schema, keyNameFromDefinition, usedNames)!
+): TClass {
+  const name = standaloneName(schema, keyNameFromDefinition, usedNames, keyName)!
   return {
     comment: schema.description,
     keyName,
     params: parseSchema(schema, options, processed, usedNames, name),
     standaloneName: name,
     superTypes: parseSuperTypes(schema, options, processed, usedNames),
-    type: 'INTERFACE'
+    type: 'CLASS'
   }
 }
 
@@ -330,14 +332,14 @@ function parseSuperTypes(
   options: Options,
   processed: Processed,
   usedNames: UsedNames
-): TNamedInterface[] {
+): TNamedClass[] {
   // Type assertion needed because of dereferencing step
   // TODO: Type it upstream
   const superTypes = schema.extends as SchemaSchema[] | undefined
   if (!superTypes) {
     return []
   }
-  return superTypes.map(_ => parse(_, options, undefined, processed, usedNames) as TNamedInterface)
+  return superTypes.map(_ => parse(_, options, undefined, processed, usedNames) as TNamedClass)
 }
 
 /**
@@ -349,8 +351,8 @@ function parseSchema(
   processed: Processed,
   usedNames: UsedNames,
   parentSchemaName: string
-): TInterfaceParam[] {
-  let asts: TInterfaceParam[] = map(schema.properties, (value, key: string) => ({
+): TClassParam[] {
+  let asts: TClassParam[] = map(schema.properties, (value, key: string) => ({
     ast: parse(value, options, key, processed, usedNames),
     isPatternProperty: false,
     isRequired: includes(schema.required || [], key),
