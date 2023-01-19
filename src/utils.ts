@@ -76,7 +76,6 @@ export function traverse(
   processed = new Set<LinkedJSONSchema>(),
   key?: string
 ): void {
-  //console.log('MARIA444--->', schema)
   // Handle recursive schemas
   if (processed.has(schema)) {
     return

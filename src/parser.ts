@@ -6,13 +6,13 @@ import {typesOfSchema} from './typesOfSchema'
 import {
   AST,
   T_ANY,
-  T_ANY_ADDITIONAL_PROPERTIES,
+  //T_ANY_ADDITIONAL_PROPERTIES,
   TClass,
   TClassParam,
   TNamedClass,
-  TTuple,
+  //TTuple,
   T_UNKNOWN,
-  T_UNKNOWN_ADDITIONAL_PROPERTIES,
+  //T_UNKNOWN_ADDITIONAL_PROPERTIES,
   TIntersection
 } from './types/AST'
 import {
@@ -39,11 +39,9 @@ export function parse(
   if (isPrimitive(schema)) {
     return parseLiteral(schema, keyName)
   }
-
   const types = typesOfSchema(schema)
   if (types.length === 1) {
     const ast = parseAsTypeWithCache(schema, types[0], options, keyName, processed, usedNames)
-    log('blue', 'parser', 'Types:', types, 'Input:', schema, 'Output:', ast, keyName)
     return ast
   }
 
@@ -68,7 +66,6 @@ export function parse(
     // to the parent intersection type, so we remove it from the children.
     parseAsTypeWithCache(maybeStripNameHints(schema), type, options, keyName, processed, usedNames)
   )
-
   log('blue', 'parser', 'Types:', types, 'Input:', schema, 'Output:', ast)
   return ast
 }
@@ -121,7 +118,6 @@ function parseNonLiteral(
 ): AST {
   const definitions = getDefinitionsMemoized(getRootSchema(schema as any)) // TODO
   const keyNameFromDefinition = findKey(definitions, _ => _ === schema)
-
   switch (type) {
     case 'ALL_OF':
       return {
@@ -212,8 +208,8 @@ function parseNonLiteral(
         standaloneName: standaloneName(schema, keyNameFromDefinition, usedNames),
         type: 'STRING'
       }
-    case 'TYPED_ARRAY':
-      if (Array.isArray(schema.items)) {
+    case 'TYPED_ARRAY': {
+      /*if (Array.isArray(schema.items)) {
         // normalised to not be undefined
         const minItems = schema.minItems!
         const maxItems = schema.maxItems!
@@ -226,21 +222,21 @@ function parseNonLiteral(
           params: schema.items.map(_ => parse(_, options, undefined, processed, usedNames)),
           type: 'TUPLE'
         }
-        if (schema.additionalItems === true) {
+        /*if (schema.additionalItems === true) {
           arrayType.spreadParam = options.unknownAny ? T_UNKNOWN : T_ANY
         } else if (schema.additionalItems) {
           arrayType.spreadParam = parse(schema.additionalItems, options, undefined, processed, usedNames)
         }
         return arrayType
-      } else {
-        return {
-          comment: schema.description,
-          keyName,
-          standaloneName: standaloneName(schema, keyNameFromDefinition, usedNames),
-          params: parse(schema.items!, options, undefined, processed, usedNames),
-          type: 'ARRAY'
-        }
+      } else {*/
+      return {
+        comment: schema.description,
+        keyName,
+        standaloneName: standaloneName(schema, keyNameFromDefinition, usedNames),
+        params: parse(schema.items!, options, undefined, processed, usedNames),
+        type: 'ARRAY'
       }
+    }
     case 'UNION':
       return {
         comment: schema.description,
@@ -301,8 +297,12 @@ function standaloneName(
   usedNames: UsedNames,
   keyName?: string
 ): string | undefined {
-  const name = schema.name || (schema.properties ? keyName : null) || schema.$id || keyNameFromDefinition
-
+  const name =
+    schema.name ||
+    (schema.properties ? keyName : null) ||
+    (schema.additionalProperties ? keyName : null) ||
+    schema.$id ||
+    keyNameFromDefinition
   if (name) {
     return generateName(name, usedNames)
   }
@@ -406,6 +406,10 @@ via the \`definition\` "${key}".`
   switch (schema.additionalProperties) {
     case undefined:
     case true:
+    case false:
+    default:
+      return asts
+    /*case true:
       if (singlePatternProperty) {
         return asts
       }
@@ -414,7 +418,7 @@ via the \`definition\` "${key}".`
         isPatternProperty: false,
         isRequired: true,
         isUnreachableDefinition: false,
-        keyName: '[k: string]'
+        keyName: ''
       })
 
     case false:
@@ -424,12 +428,12 @@ via the \`definition\` "${key}".`
     // defined via index signatures are already optional
     default:
       return asts.concat({
-        ast: parse(schema.additionalProperties, options, '[k: string]', processed, usedNames),
+        ast: parse(schema.additionalProperties, options, '', processed, usedNames),
         isPatternProperty: false,
         isRequired: true,
         isUnreachableDefinition: false,
-        keyName: '[k: string]'
-      })
+        keyName: ''
+      })*/
   }
 }
 

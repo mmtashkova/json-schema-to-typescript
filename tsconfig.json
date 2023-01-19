@@ -12,12 +12,14 @@
     "noUnusedParameters": true,
     "outDir": "dist",
     "preserveConstEnums": true,
+    "experimentalDecorators": true,
     "sourceMap": true,
     "strict": true,
     "target": "es5"
   },
+    "include": ["src/**/*", ".eslintrc.json"],
   "exclude": [
-    "example",
-    "node_modules"
+    "node_modules",
+    "./test", "dist"
   ]
 }

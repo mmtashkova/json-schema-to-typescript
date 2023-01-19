@@ -37,7 +37,9 @@ function declareEnums(ast: AST, options: Options, processed = new Set<AST>()): s
   if (processed.has(ast)) {
     return ''
   }
-
+  if (ast.keyName != undefined && ast.keyName.includes('spec')) {
+    ast.keyName = 'spec'
+  }
   processed.add(ast)
   let type = ''
 
@@ -66,7 +68,10 @@ function declareNamedClasss(ast: AST, options: Options, rootASTName: string, pro
   if (processed.has(ast)) {
     return ''
   }
-
+  if (ast.keyName != undefined && ast.keyName.includes('spec')) {
+    ast.keyName = 'spec'
+    //console.log(ast.keyName)
+  }
   processed.add(ast)
   let type = ''
 
@@ -110,17 +115,20 @@ function declareNamedTypes(ast: AST, options: Options, rootASTName: string, proc
   if (processed.has(ast)) {
     return ''
   }
-
+  if (ast.keyName != undefined && ast.keyName.includes('spec')) {
+    ast.keyName = 'spec'
+  }
   processed.add(ast)
 
   switch (ast.type) {
-    case 'ARRAY':
+    case 'ARRAY': {
       return [
         declareNamedTypes(ast.params, options, rootASTName, processed),
-        hasStandaloneName(ast) ? generateStandaloneType(ast, options) : undefined
+        hasStandaloneName(ast) ? generateStandaloneType(ast, options) : ''
       ]
         .filter(Boolean)
         .join('\n')
+    }
     case 'ENUM':
       return ''
     case 'CLASS': {
@@ -158,10 +166,12 @@ function declareNamedTypes(ast: AST, options: Options, rootASTName: string, proc
 }
 
 function generateTypeUnmemoized(ast: AST, options: Options): string {
+  if (ast.keyName != undefined && ast.keyName.includes('spec')) {
+    ast.keyName = 'spec'
+  }
   const type = generateRawType(ast, options)
-
   if (options.strictIndexSignatures && ast.keyName === '[k: string]') {
-    return `${type} | undefined`
+    return `${type}`
   }
 
   return type
@@ -170,23 +180,25 @@ export const generateType = memoize(generateTypeUnmemoized)
 
 function generateRawType(ast: AST, options: Options): string {
   log('magenta', 'generator', ast)
-
   if (hasStandaloneName(ast)) {
     return toSafeString(ast.standaloneName)
   }
-
   switch (ast.type) {
     case 'ANY':
       return 'any'
     case 'ARRAY':
       return (() => {
-        const type = generateType(ast.params, options)
+        const type = generateType(ast.params, options) != 'undefined;' ? generateType(ast.params, options) : ''
         return type.endsWith('"') ? '(' + type + ')[]' : type + '[]'
       })()
     case 'BOOLEAN':
       return 'boolean'
     case 'CLASS': {
-      return capitalizeFirstLetter(ast.keyName) + ';'
+      let st = ast.keyName
+      if (ast.keyName != undefined) {
+        st = capitalizeFirstLetter(ast.keyName)
+      }
+      return st + ';'
     }
     case 'INTERSECTION':
       return generateSetOperation(ast, options)
@@ -306,10 +318,16 @@ function generateSetOperation(ast: TIntersection | TUnion, options: Options): st
 }
 
 function generateClass(ast: TClass, options: Options): string {
+  if (ast.keyName != undefined) {
+    options.bannerBehavior = ''
+  }
   if (Test.multiset.has(ast.standaloneName)) {
     return ''
   } else {
     Test.multiset.add(ast.standaloneName)
+  }
+  if (ast.keyName != undefined && ast.keyName.includes('spec')) {
+    ast.keyName = 'spec'
   }
   return (
     `{` +
@@ -317,8 +335,8 @@ function generateClass(ast: TClass, options: Options): string {
     ast.params
       .filter(_ => !_.isPatternProperty && !_.isUnreachableDefinition)
       .map(
-        ({isRequired, keyName, ast}) =>
-          [isRequired, keyName, ast, generateType(ast, options)] as [boolean, string, AST, string]
+        ({isRequired, ast}) =>
+          [isRequired, ast.keyName, ast, generateType(ast, options)] as [boolean, string, AST, string]
       )
       .map(
         ([isRequired, keyName, ast, type]) =>
@@ -329,6 +347,8 @@ function generateClass(ast: TClass, options: Options): string {
           (hasStandaloneName(ast) ? toSafeString(type) : type)
       )
       .join('\n') +
+    '\n' +
+    options.bannerBehavior +
     '\n' +
     '}' +
     '\n'
@@ -354,6 +374,9 @@ function generateStandaloneEnum(ast: TEnum, options: Options): string {
 
 function generateStandaloneClass(ast: TNamedClass, options: Options): string {
   const test = generateClass(ast, options)
+  if (ast.keyName != undefined) {
+    options.bannerComment = ''
+  }
   if (test == '') {
     return ''
   }

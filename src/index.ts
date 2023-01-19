@@ -34,6 +34,8 @@ export interface Options {
   /**
    * Root directory for resolving [`$ref`](https://tools.ietf.org/id/draft-pbryan-zyp-json-ref-03.html)s.
    */
+  bannerInterface: string
+  bannerBehavior: string
   cwd: string
   /**
    * Declare external schemas referenced via `$ref`?
@@ -82,8 +84,20 @@ export const DEFAULT_OPTIONS: Options = {
   $refOptions: {},
   additionalProperties: false, // TODO: default to empty schema (as per spec) instead
   bannerComment: `/**
-                  * @definedEntityType
-                  */`,
+  * Runtime Defined Entity example with FaaS behaviours
+  */
+  @tsrde.DefinedEntityType
+  @tsrde.Protected
+  @tsrde.Secure
+  @tsrde.ReadOnly`,
+  bannerBehavior: `
+  @tsrde.Webhook
+  @tsrde.WebhookExecution("https://10.89.150.12:16443/apis/rabbitmq.com/v1beta1/namespaces/newrabbit/exchanges", "<#assign header_Authorization = Bearer Witrc1dmRFpqQ3dSNllnK2JpVE54WXFwSHc4R3loUmhMQUZYcWtwekprZz0K />")
+  @tsrde.AccessControl("urn:vcloud:accessLevel:FullControl")
+  print(schema: string) { }`,
+  bannerInterface: `/**
+  * @definedEntityInterface
+  */`,
   cwd: process.cwd(),
   declareExternallyReferenced: true,
   enableConstEnums: true,
@@ -121,8 +135,17 @@ export function compileFromFile(filename: string, options: Partial<Options> = DE
 }
 
 export async function compile(schema: JSONSchema4, name: string, options: Partial<Options> = {}): Promise<string> {
-  let result = ''
+  let result = `import * as tsrde from './vcd-ext-ts-rde'
+  
+  `
   for (const d in schema) {
+    let kind = schema[d].schema.name
+    kind = kind.toLowerCase()
+    options.bannerBehavior = `
+    @tsrde.Webhook
+    @tsrde.WebhookExecution("https://10.89.150.12:16443/apis/rabbitmq.com/v1beta1/namespaces/newrabbit/${kind}s", "Bearer Witrc1dmRFpqQ3dSNllnK2JpVE54WXFwSHc4R3loUmhMQUZYcWtwekprZz0K")
+    @tsrde.AccessControl("urn:vcloud:accessLevel:FullControl")
+    print(schema: string) { }`
     schema[d].schema.description = null
     validateOptions(options)
     const _options = merge({}, DEFAULT_OPTIONS, options)
