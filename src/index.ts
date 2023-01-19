@@ -135,7 +135,7 @@ export function compileFromFile(filename: string, options: Partial<Options> = DE
 }
 
 export async function compile(schema: JSONSchema4, name: string, options: Partial<Options> = {}): Promise<string> {
-  let result = `import * as tsrde from './vcd-ext-ts-rde'
+  let result = `import * as tsrde from '../vcd-ext-ts-rde'
   
   `
   for (const d in schema) {
