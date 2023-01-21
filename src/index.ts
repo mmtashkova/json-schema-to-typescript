@@ -2,7 +2,6 @@ import {readFileSync} from 'fs'
 import {JSONSchema4} from 'json-schema'
 import {Options as $RefOptions} from '@bcherny/json-schema-ref-parser'
 import {cloneDeep, endsWith, merge} from 'lodash'
-import {dirname} from 'path'
 import {Options as PrettierOptions} from 'prettier'
 import {format} from './formatter'
 import {generate} from './generator'
@@ -31,6 +30,8 @@ export interface Options {
    * Disclaimer comment prepended to the top of each generated file.
    */
   bannerComment: string
+  hrefCluster: string
+  authBearer: string
   /**
    * Root directory for resolving [`$ref`](https://tools.ietf.org/id/draft-pbryan-zyp-json-ref-03.html)s.
    */
@@ -90,6 +91,8 @@ export const DEFAULT_OPTIONS: Options = {
   @tsrde.Protected
   @tsrde.Secure
   @tsrde.ReadOnly`,
+  hrefCluster: '',
+  authBearer: '',
   bannerBehavior: `
   @tsrde.Webhook
   @tsrde.WebhookExecution("https://10.89.150.12:16443/apis/rabbitmq.com/v1beta1/namespaces/newrabbit/exchanges", "<#assign header_Authorization = Bearer Witrc1dmRFpqQ3dSNllnK2JpVE54WXFwSHc4R3loUmhMQUZYcWtwekprZz0K />")
@@ -118,7 +121,12 @@ export const DEFAULT_OPTIONS: Options = {
   unknownAny: true
 }
 
-export function compileFromFile(filename: string, options: Partial<Options> = DEFAULT_OPTIONS): Promise<string> {
+export function compileFromFile(
+  filename: string,
+  hrefCluster: string,
+  authBearer: string,
+  options: Partial<Options> = DEFAULT_OPTIONS
+): Promise<string> {
   const contents = Try(
     () => readFileSync(filename),
     () => {
@@ -131,19 +139,24 @@ export function compileFromFile(filename: string, options: Partial<Options> = DE
       throw new TypeError(`Error parsing JSON in file "${filename}"`)
     }
   )
-  return compile(schema, stripExtension(filename), {cwd: dirname(filename), ...options})
+  options.hrefCluster = hrefCluster
+  options.authBearer = authBearer
+  return compile(schema, stripExtension(filename), {cwd: hrefCluster, hrefCluster: hrefCluster, ...options})
 }
 
 export async function compile(schema: JSONSchema4, name: string, options: Partial<Options> = {}): Promise<string> {
-  let result = `import * as tsrde from '../vcd-ext-ts-rde'
+  //console.log(options.hrefCluster, options.authBearer)
+  let finalRdes = `import * as tsrde from './vcd-ext-ts-rde'
   
   `
   for (const d in schema) {
     let kind = schema[d].schema.name
     kind = kind.toLowerCase()
+    const pluralize = require('pluralize')
+    const pluralKind = pluralize(`${kind}`, 0)
     options.bannerBehavior = `
     @tsrde.Webhook
-    @tsrde.WebhookExecution("https://10.89.150.12:16443/apis/rabbitmq.com/v1beta1/namespaces/newrabbit/${kind}s", "Bearer Witrc1dmRFpqQ3dSNllnK2JpVE54WXFwSHc4R3loUmhMQUZYcWtwekprZz0K")
+    @tsrde.WebhookExecution("${options.hrefCluster}/${pluralKind}", "${options.authBearer}")
     @tsrde.AccessControl("urn:vcloud:accessLevel:FullControl")
     print(schema: string) { }`
     schema[d].schema.description = null
@@ -195,9 +208,9 @@ export async function compile(schema: JSONSchema4, name: string, options: Partia
 
     const formatted = format(generated, _options)
     log('white', 'formatter', '✅ Result:', formatted)
-    result += formatted
+    finalRdes += formatted
   }
-  return result
+  return finalRdes
 }
 
 export class ValidationError extends Error {}

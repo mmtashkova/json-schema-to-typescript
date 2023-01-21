@@ -20,7 +20,11 @@ async function generate() {
   if (!fs.existsSync(dir)){
     fs.mkdirSync(dir);
   }
-  fs.writeFileSync('output/src/Kind.ts', await compileFromFile('output.json'))
+  var args = process.argv.slice(2);
+  if (!args[0]) {
+    console.log("Missing input parameters");
+}
+  fs.writeFileSync('output/src/Kind.ts', await compileFromFile('output.json', args[0], args[1]))
   const filename = 'output.json'
   const contents = Try(
     () => fs.readFileSync(filename),
